@@ -1,13 +1,12 @@
 from time import ctime
 from typing import List
-import io
 import sys
 
 logging: bool = True
-log_to:List[type(sys.stdout)] = [sys.stdout]
+log_to: List[type(sys.stdout)] = [sys.stdout]
 
 
-def add_log_files(*args: io.TextIOWrapper):
+def add_log_files(*args: type(sys.stdout)):
     """
     Add multiple opened file objects to the list of files which the logger logs to.
     Args:
@@ -17,11 +16,11 @@ def add_log_files(*args: io.TextIOWrapper):
     log_to.extend(args)
 
 
-def set_log_files(file_list: List[io.TextIOWrapper]):
+def set_log_files(file_list: List[type(sys.stdout)]):
     """
     Set the list of files which the logger logs to.
     Args:
-        file_list(List[io.TextIOWrapper]): list of all files the logger must log to
+        file_list(List[type(sys.stdout)]): list of all files the logger must log to
     """
     global log_to
     log_to.clear()
@@ -34,11 +33,11 @@ def set_logging(logBool: bool):
     logging = logBool
 
 
-def log(*args, files: List[io.TextIOWrapper] = None, **kwargs):
+def log(*args, files: List[type(sys.stdout)] = None, **kwargs):
     """
     Log statements to multiple opened files.
     Args:
-        files(List[io.TextIOWrapper]): A list of opened file objects to log to.
+        files(List[type(sys.stdout)]): A list of opened file objects to log to.
         args: same as print.
         kwargs: same as print.
     """
