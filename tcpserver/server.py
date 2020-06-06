@@ -79,6 +79,7 @@ class SequentialServer(Server):
             pass
         closer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         closer_socket.connect((self.ip, self.port))
+        logger.close_log_files()
 
     def client_handler(self, func):
         self.handler = func
@@ -88,8 +89,8 @@ class SequentialServer(Server):
         self.stopper_thread.start()
         logger.log(f"Listening for connections on {self.ip} at {self.port}")
         self.socket.listen(self.queue)
+        client, address = self.socket.accept()
         while self.running:
-            client, address = self.socket.accept()
             # TODO Create Client Class then Instantiate and pass to handler
             self.handling = True
             self.current_client = client
@@ -98,6 +99,7 @@ class SequentialServer(Server):
             logger.log(f"Client from {address} disconnected")
             self.handling = False
             self.current_client = None
+            client, address = self.socket.accept()
 
     def start(self):
         if self.background:

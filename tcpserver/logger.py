@@ -1,26 +1,32 @@
 from time import ctime
 from typing import List
 import sys
+from typing import TextIO
 
 logging: bool = True
-log_to: List[type(sys.stdout)] = [sys.stdout]
+log_to: List[TextIO] = [sys.stdout]
 
 
-def add_log_files(*args: type(sys.stdout)):
+def close_log_files():
+    for file in log_to:
+        file.close()
+
+
+def add_log_files(*args: TextIO):
     """
     Add multiple opened file objects to the list of files which the logger logs to.
     Args:
-        args(io.TextIOWrapper):All the file objects where logs are written to.
+        args(TextIO):All the file objects where logs are written to.
     """
     global log_to
     log_to.extend(args)
 
 
-def set_log_files(file_list: List[type(sys.stdout)]):
+def set_log_files(file_list: List[TextIO]):
     """
     Set the list of files which the logger logs to.
     Args:
-        file_list(List[type(sys.stdout)]): list of all files the logger must log to
+        file_list(List[TextIO]): list of all files the logger must log to
     """
     global log_to
     log_to.clear()
@@ -33,11 +39,11 @@ def set_logging(logBool: bool):
     logging = logBool
 
 
-def log(*args, files: List[type(sys.stdout)] = None, **kwargs):
+def log(*args, files: List[TextIO] = None, **kwargs):
     """
     Log statements to multiple opened files.
     Args:
-        files(List[type(sys.stdout)]): A list of opened file objects to log to.
+        files(List[TextIO]): A list of opened file objects to log to.
         args: same as print.
         kwargs: same as print.
     """
@@ -50,7 +56,7 @@ def log(*args, files: List[type(sys.stdout)] = None, **kwargs):
             del kwargs["file"]
     else:
         if files is None:
-            files = [sys.stdout]
+            files = log_to
     log_init = f"[{ctime()}] "
     for file in files:
         print(log_init, *args, file=file, **kwargs)
