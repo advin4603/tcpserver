@@ -3,8 +3,9 @@ from . import logger
 from .settings import default_header_size, default_chunk_size, default_port, default_queue
 from abc import ABC, abstractmethod
 import threading
-from typing import Tuple, Any
+from typing import Tuple, Any, Callable, List
 import pickle
+import traceback
 
 
 class Server(ABC):
@@ -84,6 +85,9 @@ class Client:
         obj_pickled += self.socket.recv(obj_size % chunk_size)
         return pickle.loads(obj_pickled)
 
+    def __eq__(self, other: "Client"):
+        return self.client_connection_id == other.client_connection_id
+
 
 class SequentialServer(Server):
     def __init__(self, ip: str = socket.gethostbyname(socket.gethostname()), port: int = None, queue: int = None,
@@ -99,12 +103,6 @@ class SequentialServer(Server):
     def handler(self, client: Client):
         raise Exception("No Handler Set")
 
-    def check_run(self) -> bool:
-        if not self.running:
-            self.socket.close()
-            return True
-        return False
-
     def stopper(self):
         while self.running or self.handling:
             pass
@@ -113,7 +111,7 @@ class SequentialServer(Server):
         logger.close_log_files()
         closer_socket.close()
 
-    def client_handler(self, func):
+    def client_handler(self, func: Callable):
         self.handler = func
 
     def starter(self):
@@ -126,15 +124,86 @@ class SequentialServer(Server):
             self.handling = True
             self.current_client = Client(client, address)
             logger.log(f"Connection from {address}")
-            self.handler(self.current_client)
+            try:
+                self.handler(self.current_client)
+            except BaseException:
+                logger.log(f"Client from {address} got disconnected due to an error: {traceback.format_exc()}")
             logger.log(f"Client from {address} disconnected")
             self.handling = False
             self.current_client = None
             client, address = self.socket.accept()
-        self.check_run()
+        self.socket.close()
 
     def start(self):
         if self.background:
             self.server_thread.start()
         else:
             self.starter()
+
+
+class ParallelServer(Server):
+    def __init__(self, ip: str = socket.gethostbyname(socket.gethostname()), port: int = None, queue: int = None,
+                 background: bool = True):
+        super(ParallelServer, self).__init__(ip, port, queue, background)
+        self.client_threads: List[threading.Thread] = []
+        self.clients: List[Client] = []
+        self.stopper_thread = threading.Thread(target=self.stopper)
+        if self.background:
+            self.server_thread = threading.Thread(target=self.starter)
+
+    def start(self):
+        if self.background:
+            self.server_thread.start()
+        else:
+            self.starter()
+
+    def handler(self, client: Client):
+        raise Exception("No Handler Set")
+
+    def client_handler(self, func: Callable):
+        self.handler = func
+
+    def client_func(self, client: Client):
+        try:
+            self.handler(client)
+        except BaseException:
+            logger.log(
+                f"Client from {(client.ip, client.port)} got disconnected due to an error:\n{traceback.format_exc()}")
+        for index, other_clnt in enumerate(self.clients):
+            if other_clnt == client:
+                del self.clients[index]
+                logger.log(f"Client from {(client.ip, client.port)} disconnected")
+                return
+
+    def starter(self):
+        self.running = True
+        self.stopper_thread.start()
+        logger.log(f"Listening for connections on {self.ip} at {self.port}")
+        self.socket.listen(self.queue)
+        client, address = self.socket.accept()
+        while self.running:
+            new_client = Client(client, address)
+            self.clients.append(new_client)
+            logger.log(f"Connection from {address}")
+            handler_thread = threading.Thread(target=lambda: self.client_func(new_client))
+            self.client_threads.append(handler_thread)
+            handler_thread.start()
+            client, address = self.socket.accept()
+        while self.handling:
+            pass
+        self.socket.close()
+
+    def stop_running(self):
+        self.running = False
+
+    @property
+    def handling(self):
+        return any([i.is_alive() for i in self.client_threads])
+
+    def stopper(self):
+        while 1:
+            if not self.running and not self.handling:
+                closer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                closer_socket.connect((self.ip, self.port))
+                logger.close_log_files()
+                closer_socket.close()
