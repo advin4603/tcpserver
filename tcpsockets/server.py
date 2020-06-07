@@ -111,6 +111,7 @@ class SequentialServer(Server):
         closer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         closer_socket.connect((self.ip, self.port))
         logger.close_log_files()
+        closer_socket.close()
 
     def client_handler(self, func):
         self.handler = func
@@ -130,6 +131,7 @@ class SequentialServer(Server):
             self.handling = False
             self.current_client = None
             client, address = self.socket.accept()
+        self.check_run()
 
     def start(self):
         if self.background:
