@@ -171,6 +171,7 @@ class ParallelServer(Server):
                 f"Client from {(client.ip, client.port)} got disconnected due to an error:\n{traceback.format_exc()}")
         for index, other_clnt in enumerate(self.clients):
             if other_clnt == client:
+                self.clients[index].close()
                 del self.clients[index]
                 logger.log(f"Client from {(client.ip, client.port)} disconnected")
                 return
@@ -204,6 +205,10 @@ class ParallelServer(Server):
         while 1:
             if not self.running and not self.handling:
                 closer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                closer_socket.connect((self.ip, self.port))
+                try:
+                    closer_socket.connect((self.ip, self.port))
+                except ConnectionRefusedError:
+                    logger.close_log_files()
+                    return
                 logger.close_log_files()
                 closer_socket.close()

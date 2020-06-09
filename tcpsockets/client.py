@@ -22,11 +22,18 @@ class ConnectedServer:
     def start_connection(self):
         raise Exception("No Connection Handler Set")
 
+    def main_connection(self):
+        self.start_connection()
+        self.close()
+
+    def close(self):
+        self.socket.close()
+
     def connect(self):
         logger.log(f"Connecting to {self.ip} at {self.port}")
         self.socket.connect((self.ip, self.port))
         logger.log(f"Connection Successful")
-        self.connection_thread = threading.Thread(target=self.start_connection)
+        self.connection_thread = threading.Thread(target=self.main_connection)
         if self.background:
             self.connection_thread.start()
         else:
