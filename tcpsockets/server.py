@@ -24,7 +24,8 @@ class Server(ABC):
         port(str): The port the server is bound to.
         socket(socket.socket): Reference to the socket object.
         background(bool): Whether the server runs in separate thread or not.
-        running(bool): Whether the server is running or not
+        running(bool): Whether the server is running or not.
+        server_thread(threading.Thread): The Thread in which the server will run if background is True.
     """
 
     def __init__(self, ip: str = socket.gethostbyname(socket.gethostname()), port: int = None, queue: int = None,
@@ -50,13 +51,37 @@ class Server(ABC):
         if self.background:
             self.server_thread = threading.Thread(target=self.starter)
 
-    def handler(self, client):
+    def handler(self, client: "Client") -> None:
+        """
+        The Function called when the client connects to the server. Must be overridden by inheritance or by calling
+        the client_handler decorator.
+
+        Args:
+            client(Client): The Client object that has connected to the server.
+
+        Returns:
+            None
+        """
         raise Exception("No Handler set")
 
-    def client_handler(self, func: Callable):
+    def client_handler(self, func: Callable) -> None:
+        """
+
+        Args:
+            func(Callable): The User Defined Client Handler function that must take one positional argument of type
+            tcpsockets.server.Client.
+
+        Returns:
+            None
+        """
+        # noinspection PyAttributeOutsideInit
         self.handler = func
 
-    def start(self):
+    def start(self) -> None:
+        """
+        Returns:
+            None
+        """
         if self.background:
             self.server_thread.start()
         else:
@@ -66,11 +91,33 @@ class Server(ABC):
     def starter(self):
         pass
 
-    def stop_running(self):
+    def stop_running(self) -> None:
+        """
+        Calling this function stops the Server.
+        Returns: None
+        """
         self.running = False
 
 
 class Client:
+    """
+    A Client Class which represents a client a they connect to the server. Provides methods to send and receive any
+    python object that can be pickled.
+
+    Args:
+        sckt(socket.socket): reference to the client's socket returned by socket.accept()
+        address(Tuple[str,int]): a tuple containing the ip and the port.
+    Attributes:
+        total_client_connections(int): A Class variable which tracks the total number of client by tracking all its
+                                       Objects.
+        client_connection_id(int): An id uniquely identifying one instance of a connection. It is an int set to the
+                                   total number of connections made just after the client joins.
+        socket(socket.socket): reference to the client's socket returned by socket.accept()
+        ip(str): The ip address(IPV4) of the client returned by socket.accept()
+        port(int): The port the client is connected to.
+
+
+    """
     total_client_connections: int = 0
 
     def __init__(self, sckt: socket.socket, address: Tuple[str, int]):
@@ -79,9 +126,29 @@ class Client:
         self.socket: socket.socket = sckt
         self.ip: str = address[0]
         self.port: int = address[1]
-        self.close = self.socket.close
 
-    def send(self, obj: Any):
+    def close(self) -> None:
+        """
+        Closes the socket.
+        Returns:
+            None
+
+        """
+        self.socket.close()
+
+    def send(self, obj: Any) -> None:
+        """
+        Send a python object that can be pickled to the client. First sends a fixed length header defined in
+        tcpsockets.settings giving the size of incoming message then sends the pickled object. default_header_size
+        can be set by using tcpsockets.settings.set_default_header_size function.
+
+        Args:
+            obj(Any): The Object that has to be sent to the client that can be pickled.
+
+        Returns:
+            None
+
+        """
         pickled_obj = pickle.dumps(obj)
         pickled_obj_size = len(pickled_obj)
         header = str(pickled_obj_size).ljust(default_header_size).encode("utf-8")
@@ -89,6 +156,14 @@ class Client:
         self.socket.send(pickled_obj)
 
     def receive(self, chunk_size: int = None) -> Any:
+        """
+        Receive a python object sent by the client. First receive a fixed length header then receive the pickled object
+        chunk by chunk using the chunk_size argument.
+        Args:
+            chunk_size(int): The amount of bytes to receive at once. Defaults to tcpsockets.settings.default_chunk_size.
+        Returns:
+            Any
+        """
         if chunk_size is None:
             chunk_size = default_chunk_size
         obj_size_header: str = self.socket.recv(default_header_size).decode("utf-8")
@@ -99,7 +174,14 @@ class Client:
         obj_pickled += self.socket.recv(obj_size % chunk_size)
         return pickle.loads(obj_pickled)
 
-    def __eq__(self, other: "Client"):
+    def __eq__(self, other: "Client") -> bool:
+        """
+        Checks if the client objects have same client_connection_id
+        Args:
+            other(Client): The other client object to be compared with.
+        Returns:
+            bool: bool saying whether both client objects have the same client_connection_id.
+        """
         return self.client_connection_id == other.client_connection_id
 
 

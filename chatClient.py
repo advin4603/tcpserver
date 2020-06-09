@@ -40,7 +40,6 @@ def start(screen: curses.window):
             if button[1] <= mx <= button[1] + len(button[2]) and my == button[0]:
                 break
         screen.refresh()
-        time.sleep(1 / 10)
 
 
 def chat_page(screen: curses.window):
