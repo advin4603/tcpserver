@@ -70,4 +70,7 @@ def log(*args, files: List[TextIO] = None, **kwargs):
     for file in files:
         print(log_init, *args, file=file, **kwargs)
         file.flush()
-        os.fsync(file.fileno())
+        try:
+            os.fsync(file.fileno())
+        except OSError:
+            pass
