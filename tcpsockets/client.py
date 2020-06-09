@@ -28,6 +28,7 @@ class ConnectedServer:
 
     def close(self):
         self.socket.close()
+        logger.close_log_files()
 
     def connect(self):
         logger.log(f"Connecting to {self.ip} at {self.port}")

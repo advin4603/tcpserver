@@ -3,7 +3,11 @@ import curses
 import curses.textpad
 import curses.ascii
 from typing import Tuple, List
-from tcpsockets import client
+from tcpsockets import client, logger
+import textwrap
+
+log_file = open("Log.txt", "a")
+logger.set_log_files([log_file])
 
 chats: List[str] = []
 send_this: List[str] = []
@@ -43,6 +47,8 @@ def chat_page(screen: curses.window):
     global running
     user_typing = False
     read_str = ""
+    rendered_display_chats = 0
+    display_chats: List[str] = []
     while running:
         key = screen.getch()
         if key == curses.KEY_MOUSE:
@@ -59,13 +65,19 @@ def chat_page(screen: curses.window):
         box2 = screen.subwin(3, center(screen)[1] * 2, center(screen)[0] * 2 - 3, 0)
         box2.box()
 
-        for index, msg in enumerate(chats[start_index:end_index:-1]):
+        start_render_from = rendered_display_chats
+        rendered_display_chats = len(chats)
+        width_limit = center(screen)[1] * 2 - 2
+        for chat in chats[start_render_from:]:
+            parts = textwrap.fill(chat, width_limit).split("\n")
+            display_chats.extend(parts)
+        for index, msg in enumerate(display_chats[start_index:end_index:-1]):
             y = center(screen)[0] * 2 - 4 - index
             x = 0
             screen.addstr(y, x, msg)
         if user_typing:
             curses.curs_set(1)
-            screen.move(center(screen)[0] * 2 - 2, len(read_str) + 1)
+            screen.move(center(screen)[0] * 2 - 2, len(read_str[-(center(screen)[1] - 2) * 2:]))
             if key:
                 if key == curses.KEY_ENTER or key in (10, 13):
                     if read_str:
@@ -78,16 +90,14 @@ def chat_page(screen: curses.window):
                     if curses.ascii.isascii(key):
                         letter = chr(key)
                         read_str += letter
-            else:
-                screen.addstr(center(screen)[0] * 2 - 2, 1, read_str)
-            screen.move(center(screen)[0] * 2 - 2, len(read_str) + 1)
+            screen.move(center(screen)[0] * 2 - 2, len(read_str[-(center(screen)[1] - 2) * 2:]))
         else:
             screen.move(0, center(screen)[1] * 2 - 1)
             if key == ord("q"):
                 running = False
             elif key == ord("w") or key == curses.KEY_ENTER or key in (10, 18):
                 user_typing = True
-        screen.addstr(center(screen)[0] * 2 - 2, 1, read_str)
+        screen.addstr(center(screen)[0] * 2 - 2, 1, read_str[-(center(screen)[1] - 2) * 2 - 1:])
         screen.refresh()
 
 

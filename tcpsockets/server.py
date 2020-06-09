@@ -10,22 +10,27 @@ import traceback
 
 class Server(ABC):
     """
-    An Abstract Server object contains the ip and port it is bound to.
+    An Abstract Server object containing the ip and port it is bound to.
 
     Args:
         ip (str): The ip address(IPV4) of the server. Defaults to local machine's ip
-        port(int): The port the server must be bound to. Defaults to socketServer.default_port if it is not set to None
-                   else raises Exception.
+        port(int): The port the server must be bound to. Defaults to tcpsockets.settings.default_port if it is not set
+                   to None else raises Exception.
+        queue(int): The waiting queue length of the server. Defaults to tcpsockets.settings.default_queue if it is not
+                    set to None else raises Exception.
+        background(bool): Whether the server runs in background (in separate thread) or not. Defaults to True
     Attributes:
         ip (str): The ip address(IPV4) of the server.
         port(str): The port the server is bound to.
         socket(socket.socket): Reference to the socket object.
+        background(bool): Whether the server runs in separate thread or not.
+        running(bool): Whether the server is running or not
     """
 
     def __init__(self, ip: str = socket.gethostbyname(socket.gethostname()), port: int = None, queue: int = None,
                  background: bool = True):
-        self.background = background
-        self.running = False
+        self.background: bool = background
+        self.running: bool = False
         self.port: int = port
         if self.port is None:
             if default_port is None:
@@ -42,18 +47,27 @@ class Server(ABC):
         self.socket: socket.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         logger.log(f"Binding socket to {self.ip} at {self.port}")
         self.socket.bind((self.ip, self.port))
+        if self.background:
+            self.server_thread = threading.Thread(target=self.starter)
 
-    @abstractmethod
     def handler(self, client):
-        return
+        raise Exception("No Handler set")
 
-    @abstractmethod
-    def client_handler(self, func):
-        pass
+    def client_handler(self, func: Callable):
+        self.handler = func
 
-    @abstractmethod
     def start(self):
+        if self.background:
+            self.server_thread.start()
+        else:
+            self.starter()
+
+    @abstractmethod
+    def starter(self):
         pass
+
+    def stop_running(self):
+        self.running = False
 
 
 class Client:
@@ -96,23 +110,18 @@ class SequentialServer(Server):
         self.handling = False
         self.stopper_thread = threading.Thread(target=self.stopper)
 
-        if self.background:
-            self.server_thread = threading.Thread(target=self.starter)
         self.current_client = None
-
-    def handler(self, client: Client):
-        raise Exception("No Handler Set")
 
     def stopper(self):
         while self.running or self.handling:
             pass
         closer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        closer_socket.connect((self.ip, self.port))
+        try:
+            closer_socket.connect((self.ip, self.port))
+        except ConnectionRefusedError:
+            pass
         logger.close_log_files()
         closer_socket.close()
-
-    def client_handler(self, func: Callable):
-        self.handler = func
 
     def starter(self):
         self.running = True
@@ -134,12 +143,6 @@ class SequentialServer(Server):
             client, address = self.socket.accept()
         self.socket.close()
 
-    def start(self):
-        if self.background:
-            self.server_thread.start()
-        else:
-            self.starter()
-
 
 class ParallelServer(Server):
     def __init__(self, ip: str = socket.gethostbyname(socket.gethostname()), port: int = None, queue: int = None,
@@ -150,18 +153,6 @@ class ParallelServer(Server):
         self.stopper_thread = threading.Thread(target=self.stopper)
         if self.background:
             self.server_thread = threading.Thread(target=self.starter)
-
-    def start(self):
-        if self.background:
-            self.server_thread.start()
-        else:
-            self.starter()
-
-    def handler(self, client: Client):
-        raise Exception("No Handler Set")
-
-    def client_handler(self, func: Callable):
-        self.handler = func
 
     def client_func(self, client: Client):
         try:
@@ -194,9 +185,6 @@ class ParallelServer(Server):
             pass
         self.socket.close()
 
-    def stop_running(self):
-        self.running = False
-
     @property
     def handling(self):
         return any([i.is_alive() for i in self.client_threads])
@@ -212,3 +200,4 @@ class ParallelServer(Server):
                     return
                 logger.close_log_files()
                 closer_socket.close()
+                break
