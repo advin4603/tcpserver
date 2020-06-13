@@ -144,7 +144,7 @@ class Client:
     def send(self, obj: Any) -> None:
         """
         Send a python object that can be pickled to the client. First sends a fixed length header defined in
-        tcpsockets.settings giving the size of incoming message then sends the pickled object. default_header_size
+        tcpsockets.settings giving the size of outgoing message then sends the pickled object. default_header_size
         can be set by using tcpsockets.settings.set_default_header_size function.
 
         Args:
@@ -167,7 +167,7 @@ class Client:
         Args:
             chunk_size(int): The amount of bytes to receive at once. Defaults to tcpsockets.settings.default_chunk_size.
         Returns:
-            Any
+            Any: The object sent by the server
         """
         if chunk_size is None:
             chunk_size = default_chunk_size
