@@ -15,6 +15,8 @@ log_to: List[TextIO] = [sys.stdout]
 def close_log_files():
     """Closes all default log files in the list logging.log_to. Called by """
     for file in log_to:
+        if file == sys.stdout:
+            continue
         file.close()
 
 

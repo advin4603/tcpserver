@@ -55,6 +55,7 @@ class Server(ABC):
         self.socket.bind((self.ip, self.port))
         if self.background:
             self.server_thread = threading.Thread(target=self.starter)
+        self.closing = False
 
     def handler(self, client: "Client") -> None:
         """
@@ -71,7 +72,7 @@ class Server(ABC):
 
     def client_handler(self, func: Callable) -> None:
         """
-
+        Decorator to set the client handler.
         Args:
             func(Callable): The User Defined Client Handler function that must take one positional argument of type
             tcpsockets.server.Client.
@@ -84,9 +85,12 @@ class Server(ABC):
 
     def start(self) -> None:
         """
+        Start the server.
         Returns:
             None
         """
+        if self.running:
+            return
         if self.background:
             self.server_thread.start()
         else:
@@ -96,12 +100,7 @@ class Server(ABC):
     def starter(self):
         pass
 
-    def stop_running(self) -> None:
-        """
-        Calling this method stops the Server.
-        Returns: None
-        """
-        self.running = False
+
 
 
 class Client:
@@ -231,7 +230,6 @@ class SequentialServer(Server):
             closer_socket.connect((self.ip, self.port))
         except ConnectionRefusedError:
             pass
-        logger.close_log_files()
         closer_socket.close()
 
     def starter(self) -> None:
@@ -258,6 +256,18 @@ class SequentialServer(Server):
             self.current_client = None
             client, address = self.socket.accept()
         self.socket.close()
+        logger.log(f"Closed server")
+        logger.close_log_files()
+
+    def stop_running(self) -> None:
+        """
+        Calling this method stops the Server.
+        Returns: None
+        """
+        self.running = False
+        self.closing = True
+        self.stopper_thread.join()
+        self.closing = False
 
 
 class ParallelServer(Server):
@@ -333,6 +343,8 @@ class ParallelServer(Server):
         while self.handling:
             pass
         self.socket.close()
+        logger.log(f"Closed server")
+        logger.close_log_files()
 
     @property
     def handling(self) -> bool:
@@ -362,3 +374,13 @@ class ParallelServer(Server):
                 logger.close_log_files()
                 closer_socket.close()
                 break
+
+    def stop_running(self) -> None:
+        """
+        Calling this method stops the Server.
+        Returns: None
+        """
+        self.running = False
+        self.closing = True
+        self.stopper_thread.join()
+        self.closing = False
