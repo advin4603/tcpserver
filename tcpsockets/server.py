@@ -3,6 +3,7 @@ server.py
     Provides classes to create servers and handle their clients.
 """
 
+import pathlib
 import socket
 from . import logger
 from .settings import default_header_size, default_chunk_size, default_port, default_queue
@@ -11,6 +12,7 @@ import threading
 from typing import Tuple, Any, Callable, List, Union
 import pickle
 import traceback
+from pathlib import Path
 
 
 class Server(ABC):
@@ -180,6 +182,36 @@ class Client:
             bytes_obj += self.socket.recv(chunk_size)
         bytes_obj += self.socket.recv(obj_size % chunk_size)
         return pickle.loads(bytes_obj) if byte_converter is None else byte_converter(bytes_obj)
+    
+    def send_file(self, file_location:Path, chunk_size:int) -> None:
+        """
+        Send a file object in small chunks whose sizes are "chunk_size" each.
+        Args:
+            file_location(Path): Path object representing file location of the file to be sent.
+            chunk_size(int): Size of 1 chunk.
+        """
+        self.send((file_location.name, file_location.stat().st_size))
+        with open(file_location, "rb") as file:
+            file_chunk = file.read(chunk_size)
+            self.socket.send(file_chunk)
+            while file_chunk:
+                file_chunk = file.read(chunk_size)
+                self.socket.send(file_chunk)
+
+    def receive_file(self, file_save_location:Path, chunk_size:int) -> None:
+        """
+        Receive a file object in small chunks whose sizes are "chunk_size" each.
+        Args:
+            file_location(Path): Path object representing location of the folder where the file is to be saved.
+            chunk_size(int): Size of 1 chunk.
+        """
+        name, size = self.receive()
+        with open(file_save_location / name, "wb") as file:
+            byte_number = 0
+            while byte_number < size:
+                byte_chunk = self.socket.recv(chunk_size)
+                byte_number += len(byte_chunk)
+                file.write(byte_chunk)
 
     def __eq__(self, other: "Client") -> bool:
         """

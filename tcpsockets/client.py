@@ -7,7 +7,8 @@ from .settings import default_header_size, default_chunk_size
 from . import logger
 import threading
 import pickle
-from typing import Any, Callable, Union
+from pathlib import Path
+from typing import Any, Callable, Generator, Tuple, Union
 
 
 class ConnectedServer:
@@ -125,3 +126,44 @@ class ConnectedServer:
             obj_pickled += self.socket.recv(chunk_size)
         obj_pickled += self.socket.recv(obj_size % chunk_size)
         return pickle.loads(obj_pickled)
+    
+    def send_file(self, file_location:Path, chunk_size:int) -> Generator[Tuple[int, int], None, None]:
+        """
+        Send a file object in small chunks whose sizes are "chunk_size" each.
+        Args:
+            file_location(Path): Path object representing file location of the file to be sent.
+            chunk_size(int): Size of 1 chunk.
+        Returns:
+            Generator[Tuple[int, int], None, None]: A Generator containing bytes sent and total bytes to be sent.
+        """
+        file_size = file_location.stat().st_size
+        self.send((file_location.name, file_size))
+        sent_size = 0
+        with open(file_location, "rb") as file:
+            file_chunk = file.read(chunk_size)
+            self.socket.send(file_chunk)
+            sent_size += len(file_chunk)
+            yield sent_size, file_size
+            while file_chunk:
+                file_chunk = file.read(chunk_size)
+                self.socket.send(file_chunk)
+                sent_size += len(file_chunk)
+                yield sent_size, file_size
+    
+    def receive_file(self, file_save_location:Path, chunk_size:int) -> Generator[Tuple[int, int], None, None]:
+        """
+        Receive a file object in small chunks whose sizes are "chunk_size" each.
+        Args:
+            file_location(Path): Path object representing location of the folder where the file is to be saved.
+            chunk_size(int): Size of 1 chunk.
+        Returns:
+            Generator[Tuple[int, int], None, None]: A Generator containing bytes received and total bytes to be received.
+        """
+        name, size = self.receive()
+        with open(file_save_location / name, "wb") as file:
+            byte_number = 0
+            while byte_number < size:
+                byte_chunk = self.socket.recv(chunk_size)
+                byte_number += len(byte_chunk)
+                file.write(byte_chunk)
+                yield byte_number, size
