@@ -1,5 +1,6 @@
 from tcpsockets import server, logger
 from typing import List
+import pickle
 
 srvr = server.ParallelServer()
 chat_buffer: List[str] = []
@@ -9,9 +10,9 @@ chat_buffer: List[str] = []
 def handler(clnt: server.Client):
     global chat_buffer
     while srvr.running:
-        req = clnt.receive()
+        req = clnt.receive(byte_converter=pickle.loads)
         if req == "GET":
-            clnt.send(chat_buffer)
+            clnt.send(chat_buffer, pickle.dumps)
         elif req == "POST":
             chat_buffer.extend(clnt.receive())
         elif req == "QUIT":

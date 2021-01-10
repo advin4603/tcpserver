@@ -138,7 +138,7 @@ class Client:
         """
         self.socket.close()
 
-    def send(self, obj: Any) -> None:
+    def send(self, obj: Any, byte_converter: Callable[[Any], bytes] = None) -> None:
         """
         Send a python object that can be pickled to the client. First sends a fixed length header defined in
         tcpsockets.settings giving the size of outgoing message then sends the pickled object. default_header_size
@@ -146,23 +146,28 @@ class Client:
 
         Args:
             obj(Any): The Object that has to be sent to the client that can be pickled.
+            byte_converter(Callable[[Any], bytes]): Function to convert object to bytes. 
 
         Returns:
             None
 
         """
-        pickled_obj = pickle.dumps(obj)
-        pickled_obj_size = len(pickled_obj)
-        header = str(pickled_obj_size).ljust(default_header_size).encode("utf-8")
+        if byte_converter is None:
+            bytes_obj = pickle.dumps(obj)
+        else:
+            bytes_obj = byte_converter(obj)
+        bytes_obj_size = len(bytes_obj)
+        header = str(bytes_obj_size).ljust(default_header_size).encode("utf-8")
         self.socket.send(header)
-        self.socket.send(pickled_obj)
+        self.socket.send(bytes_obj)
 
-    def receive(self, chunk_size: int = None) -> Any:
+    def receive(self, chunk_size: int = None, byte_converter: Callable[[bytes], Any] = None) -> Any:
         """
         Receive a python object sent by the client. First receive a fixed length header then receive the pickled object
         chunk by chunk using the chunk_size argument.
         Args:
             chunk_size(int): The amount of bytes to receive at once. Defaults to tcpsockets.settings.default_chunk_size.
+            byte_converter(Callable[[bytes], Any]): Function to convert bytes to object. 
         Returns:
             Any: The object sent by the server
         """
@@ -170,11 +175,11 @@ class Client:
             chunk_size = default_chunk_size
         obj_size_header: str = self.socket.recv(default_header_size).decode("utf-8")
         obj_size: int = int(obj_size_header.strip())
-        obj_pickled = b""
+        bytes_obj = b""
         for _ in range(obj_size // chunk_size):
-            obj_pickled += self.socket.recv(chunk_size)
-        obj_pickled += self.socket.recv(obj_size % chunk_size)
-        return pickle.loads(obj_pickled)
+            bytes_obj += self.socket.recv(chunk_size)
+        bytes_obj += self.socket.recv(obj_size % chunk_size)
+        return pickle.loads(bytes_obj) if byte_converter is None else byte_converter(bytes_obj)
 
     def __eq__(self, other: "Client") -> bool:
         """

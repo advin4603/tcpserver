@@ -100,7 +100,7 @@ def chat_page(screen: curses.window):
         screen.refresh()
 
 
-chat_srvr = client.ConnectedServer("192.168.1.2", 1234)
+chat_srvr = client.ConnectedServer("192.168.1.3", 1234)
 
 
 @chat_srvr.on_connection
