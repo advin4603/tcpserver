@@ -101,8 +101,6 @@ class Server(ABC):
         pass
 
 
-
-
 class Client:
     """
     A Client Class which represents a client a they connect to the server. Provides methods to send and receive any
@@ -369,9 +367,7 @@ class ParallelServer(Server):
                 try:
                     closer_socket.connect((self.ip, self.port))
                 except ConnectionRefusedError:
-                    logger.close_log_files()
                     return
-                logger.close_log_files()
                 closer_socket.close()
                 break
 
