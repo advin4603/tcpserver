@@ -49,6 +49,11 @@ def set_logging(logBool: bool):
     global logging
     logging = logBool
 
+def log_print(*args, **kwargs):
+    """ Prints the log with time in front. Same signature as that of print."""
+    log_init = f"[{ctime()}] "
+    print(log_init, *args, **kwargs)
+
 
 def log(*args, files: List[TextIO] = None, **kwargs):
     """
@@ -68,9 +73,9 @@ def log(*args, files: List[TextIO] = None, **kwargs):
     else:
         if files is None:
             files = log_to
-    log_init = f"[{ctime()}] "
+    
     for file in files:
-        print(log_init, *args, file=file, **kwargs)
+        log_print(*args, file=file, **kwargs)
         file.flush()
         try:
             os.fsync(file.fileno())
