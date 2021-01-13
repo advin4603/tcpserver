@@ -10,6 +10,8 @@ import pickle
 from pathlib import Path
 from typing import Any, Callable, Generator, Tuple, Union
 
+TimeoutException = socket.timeout
+
 
 class ConnectedServer:
     """
@@ -126,6 +128,14 @@ class ConnectedServer:
             obj_pickled += self.socket.recv(chunk_size)
         obj_pickled += self.socket.recv(obj_size % chunk_size)
         return pickle.loads(obj_pickled)
+    
+    def set_receive_timeout(self, timeout:int) -> None:
+        """
+        Sets the time out for Client.receive(). Raises socket.timeout after timeout.
+        Args:
+            timeout(int): Number of seconds for timeout.
+        """
+        self.socket.settimeout(timeout)
     
     def send_file(self, file_location:Path, chunk_size:int) -> Generator[Tuple[int, int], None, None]:
         """

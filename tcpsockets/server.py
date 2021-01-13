@@ -14,6 +14,7 @@ import pickle
 import traceback
 from pathlib import Path
 
+TimeoutException = socket.timeout
 
 class Server(ABC):
     """
@@ -212,6 +213,14 @@ class Client:
                 byte_chunk = self.socket.recv(chunk_size)
                 byte_number += len(byte_chunk)
                 file.write(byte_chunk)
+    
+    def set_receive_timeout(self, timeout:int) -> None:
+        """
+        Sets the time out for Client.receive(). Raises socket.timeout after timeout.
+        Args:
+            timeout(int): Number of seconds for timeout.
+        """
+        self.socket.settimeout(timeout)
 
     def __eq__(self, other: "Client") -> bool:
         """
