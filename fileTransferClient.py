@@ -13,4 +13,5 @@ def on_connection():
         print(f"{done}/{total}")
     print("Done 2")
 
+
 chat_srvr.connect()

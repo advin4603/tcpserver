@@ -3,7 +3,6 @@ server.py
     Provides classes to create servers and handle their clients.
 """
 
-import pathlib
 import socket
 from . import logger
 from .settings import default_header_size, default_chunk_size, default_port, default_queue
@@ -15,6 +14,7 @@ import traceback
 from pathlib import Path
 
 TimeoutException = socket.timeout
+
 
 class Server(ABC):
     """
@@ -164,6 +164,29 @@ class Client:
         self.socket.send(header)
         self.socket.send(bytes_obj)
 
+    def send_to(self, obj: Any, client: "Client", byte_converter: Callable[[Any], bytes] = None):
+        """
+        Send a python object that can be pickled to the client. First sends a fixed length header defined in
+        tcpsockets.settings giving the size of outgoing message then sends the pickled object. default_header_size
+        can be set by using tcpsockets.settings.set_default_header_size function.
+
+        Args:
+            client(Client): Which client to send it to
+            obj(Any): The Object that has to be sent to the client that can be pickled.
+            byte_converter(Callable[[Any], bytes]): Function to convert object to bytes.
+
+        Returns:
+            None
+        """
+        if byte_converter is None:
+            bytes_obj = pickle.dumps(obj)
+        else:
+            bytes_obj = byte_converter(obj)
+        bytes_obj_size = len(bytes_obj)
+        header = str(bytes_obj_size).ljust(default_header_size).encode("utf-8")
+        self.socket.sendto(header, address=(client.ip, client.port))
+        self.socket.sendto(bytes_obj, address=(client.ip, client.port))
+
     def receive(self, chunk_size: int = None, byte_converter: Callable[[bytes], Any] = None) -> Any:
         """
         Receive a python object sent by the client. First receive a fixed length header then receive the pickled object
@@ -183,8 +206,8 @@ class Client:
             bytes_obj += self.socket.recv(chunk_size)
         bytes_obj += self.socket.recv(obj_size % chunk_size)
         return pickle.loads(bytes_obj) if byte_converter is None else byte_converter(bytes_obj)
-    
-    def send_file(self, file_location:Path, chunk_size:int) -> None:
+
+    def send_file(self, file_location: Path, chunk_size: int) -> None:
         """
         Send a file object in small chunks whose sizes are "chunk_size" each.
         Args:
@@ -199,7 +222,7 @@ class Client:
                 file_chunk = file.read(chunk_size)
                 self.socket.send(file_chunk)
 
-    def receive_file(self, file_save_location:Path, chunk_size:int) -> None:
+    def receive_file(self, file_save_location: Path, chunk_size: int) -> None:
         """
         Receive a file object in small chunks whose sizes are "chunk_size" each.
         Args:
@@ -213,8 +236,8 @@ class Client:
                 byte_chunk = self.socket.recv(chunk_size)
                 byte_number += len(byte_chunk)
                 file.write(byte_chunk)
-    
-    def set_receive_timeout(self, timeout:int) -> None:
+
+    def set_receive_timeout(self, timeout: int) -> None:
         """
         Sets the time out for Client.receive(). Raises socket.timeout after timeout.
         Args:
